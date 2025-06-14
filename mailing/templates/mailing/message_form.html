@@ -2,9 +2,9 @@
 
 {% block title %}
     {% if object %}
-    Редактирование подписчика
+    Редактирование сообщения
     {% else %}
-    Добавление подписчика
+    Добавление сообщения
     {% endif %}
 {% endblock %}
 
@@ -13,9 +13,9 @@
     {% include 'mailing/includes/header.html' %}
     <h3>
         {% if object %}
-        Редактирование подписчика:
+        Редактирование сообщения:
         {% else %}
-        Добавление подписчика:
+        Добавление сообщения:
         {% endif %}
     </h3>
     <div class="container">
@@ -35,7 +35,7 @@
                                 Добавить
                             {% endif %}
                             </button>
-                            <a href="{% url 'mailing:subscriber_detail' subscriber.pk %}" class="btn btn-secondary">Отмена</a>
+                            <a href="{% url 'mailing:message_detail' message.pk %}" class="btn btn-secondary">Отмена</a>
                         </p>
                     </div>
                 </form>

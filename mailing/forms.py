@@ -1,5 +1,5 @@
 from django.forms import ModelForm, BooleanField
-from mailing.models import Subscriber
+from mailing.models import Subscriber, Message
 
 
 class StyleFormMixin:
@@ -13,4 +13,10 @@ class StyleFormMixin:
 class SubscriberForm(StyleFormMixin, ModelForm):
     class Meta:
         model = Subscriber
+        fields = "__all__"
+
+
+class MessageForm(StyleFormMixin, ModelForm):
+    class Meta:
+        model = Message
         fields = "__all__"
