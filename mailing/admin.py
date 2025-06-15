@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Subscriber, Message
+from .models import Subscriber, Message, MailingModel
 
 
 @admin.register(Subscriber)
@@ -10,6 +10,14 @@ class SubscriberAdmin(admin.ModelAdmin):
 
 @admin.register(Message)
 class MessageAdmin(admin.ModelAdmin):
-    list_display = ('subject', 'body',)
+    list_display = ('id', 'subject', 'body',)
     list_filter = ('subject', 'body',)
     search_fields = ('subject',)
+
+
+admin.site.register(MailingModel)
+# @admin.register(MailingModel)
+# class MailingModelAdmin(admin.ModelAdmin):
+#     list_display = ('id', 'status', 'message', 'subscriber')
+
+
