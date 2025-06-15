@@ -1,8 +1,12 @@
-from django.shortcuts import render
+from django.core.mail import send_mail
+from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse_lazy
+from django.views import View
+from django.contrib import messages
 from django.views.generic import TemplateView, ListView, DetailView, CreateView, UpdateView, DeleteView
 from mailing.forms import SubscriberForm, MessageForm, MailingModelForm
 from mailing.models import Subscriber, Message, MailingModel
+from django.conf import settings
 
 
 class HomeView(TemplateView):
@@ -116,3 +120,38 @@ class MailingModelDeleteView(DeleteView):
     template_name = 'mailing/mailingmodel_confirm_delete.html'
     context_object_name = 'mailingmodel'
     success_url = reverse_lazy('mailing:mailingmodel_list')
+
+
+class SendingMailingView(View):
+    '''Класс осуществляющий отправку рассылки'''
+
+    def get(self, request, pk):
+        mailing = get_object_or_404(MailingModel, pk=pk)
+        if mailing.status == 'finished':
+            messages.error(request, 'Нельзя отправить завершённую рассылку.')
+            return redirect('mailing:mailingmodel_list')
+        return render(request, 'mailing/confirm_send.html', {'mailing': mailing})
+
+    def post(self, request, pk):
+        mailing = get_object_or_404(MailingModel, pk=pk)
+        subject = mailing.message.subject
+        body = mailing.message.body
+        subscriber = mailing.subscriber.all()
+
+        emails = [p.email for p in subscriber]
+
+        if emails:
+            send_mail(
+                subject=subject,
+                message=body,
+                from_email=settings.EMAIL_HOST_USER,
+                recipient_list=emails,
+                fail_silently=False,
+            )
+            messages.success(request, f'Рассылка отправлена {len(emails)} получателям.')
+            mailing.status = 'started'
+            mailing.save()
+        else:
+            messages.warning(request, 'У рассылки нет получателей.')
+
+        return redirect('mailing:mailingmodel_list')
