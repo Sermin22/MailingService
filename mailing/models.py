@@ -32,7 +32,7 @@ class Message(models.Model):
 class MailingModel(models.Model):
     CREATED = "created"
     STARTED = "started"
-    FINISHED ="finished"
+    FINISHED = "finished"
 
     STATUSES_CHOICES = [
         (CREATED, "Создана"),
@@ -48,7 +48,7 @@ class MailingModel(models.Model):
         help_text="Укажите время в формате ДД.ММ.ГГГГ ЧЧ:ММ:СС"
     )
     status = models.CharField(max_length=20, choices=STATUSES_CHOICES, default=CREATED, verbose_name="Статус")
-    message = models.ForeignKey(Message, on_delete=models.CASCADE, verbose_name="Сообщение",related_name="messages")
+    message = models.ForeignKey(Message, on_delete=models.CASCADE, verbose_name="Сообщение", related_name="messages")
     subscriber = models.ManyToManyField(
         Subscriber,
         verbose_name="Получатель рассылки",
@@ -63,3 +63,27 @@ class MailingModel(models.Model):
 
     def __str__(self):
         return f"Рассылка #{self.pk} - {self.status}"
+
+
+# Модель попытка рассылки
+class MailingAttempt(models.Model):
+    SUCCESSFULLY = "successfully"
+    NOT_SUCCESSFULL = "not_successful"
+
+    STATUSES_CHOICES = [
+        (SUCCESSFULLY, "Успешно"),
+        (NOT_SUCCESSFULL, "Не успешно"),
+    ]
+
+    date_and_time = models.DateTimeField(auto_now_add=True, verbose_name="Время отправки")
+    status = models.CharField(max_length=20, choices=STATUSES_CHOICES, verbose_name="Статус отправки")
+    server_mail_response = models.TextField(verbose_name="Ответ почтового сервера")
+    mailing = models.ForeignKey(MailingModel, on_delete=models.CASCADE, related_name='mailings')
+
+    class Meta:
+        verbose_name = "Попытка рассылки"
+        verbose_name_plural = "Попытки рассылок"
+        ordering = ["-date_and_time"]
+
+    def __str__(self):
+        return f"{self.date_and_time} - {self.status}"

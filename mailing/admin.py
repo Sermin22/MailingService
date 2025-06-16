@@ -16,8 +16,3 @@ class MessageAdmin(admin.ModelAdmin):
 
 
 admin.site.register(MailingModel)
-# @admin.register(MailingModel)
-# class MailingModelAdmin(admin.ModelAdmin):
-#     list_display = ('id', 'status', 'message', 'subscriber')
-
-

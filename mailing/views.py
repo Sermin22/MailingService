@@ -5,12 +5,20 @@ from django.views import View
 from django.contrib import messages
 from django.views.generic import TemplateView, ListView, DetailView, CreateView, UpdateView, DeleteView
 from mailing.forms import SubscriberForm, MessageForm, MailingModelForm
-from mailing.models import Subscriber, Message, MailingModel
+from mailing.models import Subscriber, Message, MailingModel, MailingAttempt
 from django.conf import settings
+from django.utils import timezone
 
 
 class HomeView(TemplateView):
     template_name = 'mailing/home.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['total_mailings'] = MailingModel.objects.count()
+        context['active_mailings'] = MailingModel.objects.filter(status=MailingModel.STARTED).count()
+        context['unique_subscribers'] = Subscriber.objects.count()  # Если email уникальный в модели
+        return context
 
 
 class SubscriberListView(ListView):
@@ -123,11 +131,12 @@ class MailingModelDeleteView(DeleteView):
 
 
 class SendingMailingView(View):
-    '''Класс осуществляющий отправку рассылки'''
+    '''Класс осуществляющий отправку рассылки и попытка рассылки — это запись в БД о каждой попытке
+    отправки сообщения по рассылке по каждому подписчику'''
 
     def get(self, request, pk):
         mailing = get_object_or_404(MailingModel, pk=pk)
-        if mailing.status == 'finished':
+        if mailing.status == MailingModel.FINISHED:
             messages.error(request, 'Нельзя отправить завершённую рассылку.')
             return redirect('mailing:mailingmodel_list')
         return render(request, 'mailing/confirm_send.html', {'mailing': mailing})
@@ -141,17 +150,82 @@ class SendingMailingView(View):
         emails = [p.email for p in subscriber]
 
         if emails:
-            send_mail(
-                subject=subject,
-                message=body,
-                from_email=settings.EMAIL_HOST_USER,
-                recipient_list=emails,
-                fail_silently=False,
-            )
-            messages.success(request, f'Рассылка отправлена {len(emails)} получателям.')
-            mailing.status = 'started'
-            mailing.save()
+            for email in emails:
+                try:
+                    send_mail(
+                        subject=subject,
+                        message=body,
+                        from_email=settings.EMAIL_HOST_USER,
+                        recipient_list=[email],
+                        fail_silently=False,
+                    )
+                    messages.success(request, f'Рассылка отправлена получателю {email}.')
+                    mailing.status = MailingModel.STARTED
+                    mailing.save()
+
+                    status_mailing_attempt = MailingAttempt.SUCCESSFULLY
+                    server_mail_response = 'Письмо отправлено'
+
+                except Exception as e:
+                    status_mailing_attempt = MailingAttempt.NOT_SUCCESSFULL
+                    server_mail_response = str(e)
+
+                MailingAttempt.objects.create(
+                    date_and_time=timezone.now(),
+                    status=status_mailing_attempt,
+                    server_mail_response=server_mail_response,
+                    mailing=mailing
+                )
         else:
             messages.warning(request, 'У рассылки нет получателей.')
 
         return redirect('mailing:mailingmodel_list')
+
+
+class MailingAttemptListView(ListView):
+    model = MailingAttempt
+    template_name = 'mailing/mailingattempt_list.html'
+    context_object_name = 'attempts'
+
+    def get_queryset(self):
+        return MailingAttempt.objects.filter(mailing_id=self.kwargs['pk'])
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['mailing'] = MailingModel.objects.get(pk=self.kwargs['pk'])
+        return context
+
+
+# class SendingMailingView(View):
+#     '''Класс осуществляющий отправку рассылки'''
+#
+#     def get(self, request, pk):
+#         mailing = get_object_or_404(MailingModel, pk=pk)
+#         if mailing.status == 'finished':
+#             messages.error(request, 'Нельзя отправить завершённую рассылку.')
+#             return redirect('mailing:mailingmodel_list')
+#         return render(request, 'mailing/confirm_send.html', {'mailing': mailing})
+#
+#     def post(self, request, pk):
+#         mailing = get_object_or_404(MailingModel, pk=pk)
+#         subject = mailing.message.subject
+#         body = mailing.message.body
+#         subscriber = mailing.subscriber.all()
+#
+#         emails = [p.email for p in subscriber]
+#
+#         if emails:
+#             send_mail(
+#                 subject=subject,
+#                 message=body,
+#                 from_email=settings.EMAIL_HOST_USER,
+#                 recipient_list=emails,
+#                 fail_silently=False,
+#             )
+#             messages.success(request, f'Рассылка отправлена {len(emails)} получателям.')
+#             mailing.status = 'started'
+#             mailing.save()
+#         else:
+#             messages.warning(request, 'У рассылки нет получателей.')
+#
+#         return redirect('mailing:mailingmodel_list')

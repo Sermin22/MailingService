@@ -148,4 +148,4 @@ SERVER_EMAIL = EMAIL_HOST_USER
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 # LOGIN_REDIRECT_URL = "mailing:home"  # Пользователь попадёт сюда после авторизации
-# LOGOUT_REDIRECT_URL = "/mailing/home/" # Пользователь попадёт сюда после выхода
+# LOGOUT_REDIRECT_URL = "mailing:home" # Пользователь попадёт сюда после выхода

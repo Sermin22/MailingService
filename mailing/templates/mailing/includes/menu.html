@@ -1,10 +1,10 @@
 <div class="d-flex flex-column flex-md-row align-items-center p-3 px-md-4 mb-3 bg-white border-bottom box-shadow">
     <h5 class="my-0 mr-md-auto font-weight-normal">Сервис управления рассылками</h5>
     <nav class="ms-5">
+        <a class="p-2 btn btn-outline-primary" href="/mailing/home/">Главная</a>
         <a class="p-2 btn btn-outline-primary" href="/mailing/subscribers/">Подписчики</a>
         <a class="p-2 btn btn-outline-primary" href="/mailing/messages/">Сообщения</a>
         <a class="p-2 btn btn-outline-primary" href="/mailing/mailing/">Рассылки</a>
-        <a class="p-2 btn btn-outline-primary" href="#">Кнопка4</a>
         {% if user.is_authenticated %}
         <form method="post" action="/accounts/logout/" style="display: inline">
             {% csrf_token %}
@@ -13,6 +13,7 @@
         {% else %}
         <a class="p-2 btn btn-outline-primary" href="/accounts/login/">Вoйти</a>
         <a class="p-2 btn btn-outline-primary" href="/registration/">Регистрация</a>
+        <a class="p-2 btn btn-outline-primary" href="#">Кнопка</a>
         {% endif %}
     </nav>
 </div>

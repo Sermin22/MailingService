@@ -8,7 +8,7 @@
     <h3>Рассылка:</h3>
     <div class="album py-5 bg-body-tertiary">
         <div class="container">
-            <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
+            <div class="row row-cols-1 row-cols-sm-1 row-cols-md-2 g-3">
                 <div class="col">
                     <div class="card shadow-sm">
                         <div class="card-body">
@@ -45,6 +45,9 @@
                                     </a>
                                     <a href="{% url 'mailing:mailingmodel_delete' mailingmodel.pk %}">
                                         <button type="button" class="btn btn-sm btn-danger">Удалить</button>
+                                    </a>
+                                    <a href="{% url 'mailing:mailing_attempts' mailingmodel.id %}">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary">Отправки</button>
                                     </a>
                                 </div>
                                 <small class="text-body-secondary"></small>

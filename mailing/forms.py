@@ -2,7 +2,6 @@ from django.forms import ModelForm, BooleanField
 from mailing.models import Subscriber, Message, MailingModel
 from django.core.exceptions import ValidationError
 from django.utils import timezone
-from django import forms
 
 
 class StyleFormMixin:
@@ -42,4 +41,3 @@ class MailingModelForm(StyleFormMixin, ModelForm):
             if end_sending < timezone.now():
                 raise ValidationError("Окончание рассылки не может быть в прошлом.")
         return cleaned_data
-

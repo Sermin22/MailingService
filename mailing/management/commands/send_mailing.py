@@ -7,6 +7,7 @@ from django.conf import settings
 class Command(BaseCommand):
     help = 'Отправить рассылку вручную по ID через командную строку'
 
+    # Задает аргумент для передачи в командную строку, когда запустим команду
     def add_arguments(self, parser):
         parser.add_argument('pk', type=int, help='ID рассылки')
 
