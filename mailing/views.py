@@ -135,9 +135,15 @@ class SendingMailingView(View):
     отправки сообщения по рассылке по каждому подписчику'''
 
     def get(self, request, pk):
+        date_and_time_now = timezone.now()
         mailing = get_object_or_404(MailingModel, pk=pk)
+        if date_and_time_now > mailing.end_sending:
+            messages.warning(request, 'Время отправки рассылки закончилось! '
+                                      'Статус рассылки будет изменен!')
+            mailing.status = MailingModel.FINISHED
+            mailing.save()
         if mailing.status == MailingModel.FINISHED:
-            messages.error(request, 'Нельзя отправить завершённую рассылку.')
+            messages.warning(request, 'Нельзя отправить завершённую рассылку.')
             return redirect('mailing:mailingmodel_list')
         return render(request, 'mailing/confirm_send.html', {'mailing': mailing})
 
