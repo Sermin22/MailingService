@@ -6,14 +6,15 @@
         <a class="p-2 btn btn-outline-primary" href="/mailing/messages/">Сообщения</a>
         <a class="p-2 btn btn-outline-primary" href="/mailing/mailing/">Рассылки</a>
         {% if user.is_authenticated %}
-        <form method="post" action="/accounts/logout/" style="display: inline">
+        <form method="post" action="{% url 'users:logout' %}" style="display: inline">
             {% csrf_token %}
             <button type="submit" class="p-2 btn btn-outline-primary">Выйти</button>
         </form>
         {% else %}
-        <a class="p-2 btn btn-outline-primary" href="/accounts/login/">Вoйти</a>
-        <a class="p-2 btn btn-outline-primary" href="/registration/">Регистрация</a>
-        <a class="p-2 btn btn-outline-primary" href="#">Кнопка</a>
+        <a class="p-2 btn btn-outline-primary" href="{% url 'users:login' %}">Вoйти</a>
+        <a class="p-2 btn btn-outline-primary" href="{% url 'users:register' %}">Регистрация</a>
         {% endif %}
+        <a class="p-2 btn btn-outline-primary" href="{% url 'users:profile' %}">Профиль</a>
+        <a class="p-2 btn btn-outline-primary" href="#">Кнопка</a>
     </nav>
 </div>

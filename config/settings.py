@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "mailing",
+    "users",
 ]
 
 MIDDLEWARE = [
@@ -147,5 +148,9 @@ EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 SERVER_EMAIL = EMAIL_HOST_USER
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
-# LOGIN_REDIRECT_URL = "mailing:home"  # Пользователь попадёт сюда после авторизации
+AUTH_USER_MODEL = "users.CustomUser"
+
+LOGIN_URL = "users:login"  # Пользователь, пытающийся зайти на защищенную страницу, будет перенаправлен
+
+LOGIN_REDIRECT_URL = "mailing:home"  # Пользователь попадёт сюда после авторизации
 # LOGOUT_REDIRECT_URL = "mailing:home" # Пользователь попадёт сюда после выхода
