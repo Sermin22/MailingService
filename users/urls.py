@@ -1,6 +1,6 @@
 from django.urls import path, reverse_lazy
 from . import views
-from users.views import RegisterView, ProfileView, ProfileUpdateView
+from users.views import RegisterView, ProfileView, ProfileUpdateView, ProfileListView, DisableProfileView
 from django.contrib.auth.views import LoginView, LogoutView
 from users.apps import UsersConfig
 from django.contrib.auth import views as auth_views
@@ -34,4 +34,6 @@ urlpatterns = [
     path('password-reset/complete/',
          auth_views.PasswordResetCompleteView.as_view(
              template_name='users/password_reset_complete.html'), name='password_reset_complete'),
+    path('profiles/', ProfileListView.as_view(), name='profile_list'),
+    path('disable-profile/<int:pk>/', DisableProfileView.as_view(), name='disable_profile'),
 ]

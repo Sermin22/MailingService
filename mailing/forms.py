@@ -15,13 +15,13 @@ class StyleFormMixin:
 class SubscriberForm(StyleFormMixin, ModelForm):
     class Meta:
         model = Subscriber
-        fields = "__all__"
+        exclude = ["owner"]
 
 
 class MessageForm(StyleFormMixin, ModelForm):
     class Meta:
         model = Message
-        fields = "__all__"
+        exclude = ["owner"]
 
 
 class MailingModelForm(StyleFormMixin, ModelForm):

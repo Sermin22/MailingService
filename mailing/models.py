@@ -1,4 +1,5 @@
 from django.db import models
+from users.models import CustomUser
 
 
 # Модель Получатель рассылки (подписчик)
@@ -6,6 +7,13 @@ class Subscriber(models.Model):
     email = models.EmailField(unique=True, verbose_name="Email", help_text="Введите почту")
     full_name = models.CharField(max_length=255, verbose_name="Ф.И.О.", help_text="Введите Ф.И.О.")
     comment = models.TextField(verbose_name="Комментарий", blank=True, null=True, help_text="Добавьте комментарий")
+    owner = models.ForeignKey(
+        CustomUser,
+        verbose_name='Владелец',
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+    )
 
     class Meta:
         verbose_name = "Получатель рассылки"
@@ -19,6 +27,13 @@ class Subscriber(models.Model):
 class Message(models.Model):
     subject = models.CharField(max_length=255, verbose_name="Тема письма", help_text="Введите тему")
     body = models.TextField(verbose_name="Тело письма", help_text="Введите текст сообщения")
+    owner = models.ForeignKey(
+        CustomUser,
+        verbose_name='Владелец',
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+    )
 
     class Meta:
         verbose_name = "Письмо"
@@ -55,11 +70,25 @@ class MailingModel(models.Model):
         related_name="subscribers",
         help_text="Удерживайте “Control“ (или “Command“ на Mac), чтобы выбрать несколько значений."
     )
+    is_active = models.BooleanField(
+        verbose_name="Активна",
+        default=True,
+    )
+    owner = models.ForeignKey(
+        CustomUser,
+        verbose_name='Владелец',
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+    )
 
     class Meta:
         verbose_name = "Рассылка"
         verbose_name_plural = "Рассылки"
         ordering = ["-beginning_sending"]
+        permissions = [
+            ("can_disable_mailing", "Can disable mailing"),
+        ]
 
     def __str__(self):
         return f"Рассылка #{self.pk} - {self.status}"

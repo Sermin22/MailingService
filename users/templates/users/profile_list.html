@@ -1,18 +1,33 @@
 {% extends 'mailing/base.html' %}
 
 {% load user_tags %}
+{% load mailing_group_tags %}
 
-{% block title %}Профиль{% endblock %}
+{% block title %}Пользователи{% endblock %}
 
 {% block content %}
 
     {% include 'mailing/includes/header.html' %}
 
+    <section class="py-1 text-center container">
+        <div class="row py-lg-1">
+            <div class="col-lg-6 col-md-8 mx-auto"><h1 class="fw-light">Пользователи сервиса</h1>
+                <p class="lead text-body-secondary">Подробнее о наших пользователях!</p>
+                <p>
+                    <a href="#" class="btn btn-primary my-2">Кнопка1</a>
+                    <a href="#" class="btn btn-secondary my-2">Кнопка2</a>
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <h3>Список пользователей сервиса:</h3>
     <div class="album py-5 bg-body-tertiary">
         <div class="container">
             <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
+                {% for user in users %}
                 <div class="col">
-                    <div class="card shadow-sm">
+                    <div class="card shadow-sm h-100 d-flex flex-column">
                         <img src="{{ user.avatar | media_filter }}" alt="{{ user.username }}" width="150">
                         <div class="card-body">
                             <p class="card-text fw-bold mb-1">Пользователь: {{ user.email }}</p>
@@ -25,21 +40,18 @@
                                         <button type="button" class="btn btn-sm btn-outline-secondary">На главную</button>
                                     </a>
                                 </div>
-                                <div class="btn-group">
-                                    <a href="{% url 'users:edit-profile' %}">
-                                        <button type="button" class="btn btn-sm btn-primary">Редактировать</button>
-                                    </a>
-                                </div>
-                                <div class="btn-group">
-                                    <a href="#">
-                                        <button type="button" class="btn btn-sm btn-danger">Удалить</button>
-                                    </a>
-                                </div>
+                                {% if request.user.is_superuser or request.user|in_group:"Managers" %}
+                                    <form method="post" action="{% url 'users:disable_profile' user.pk %}" style="display: inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-danger">Заблокировать</button>
+                                    </form>
+                                {% endif %}
                                 <small class="text-body-secondary"></small>
                             </div>
                         </div>
                     </div>
                 </div>
+                {% endfor %}
             </div>
         </div>
     </div>

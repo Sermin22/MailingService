@@ -3,10 +3,13 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.mail import send_mail
 from django.shortcuts import redirect, get_object_or_404
 from django.urls import reverse_lazy, reverse
-from django.views.generic import CreateView, DetailView, UpdateView
+from django.views import View
+from django.views.generic import CreateView, DetailView, UpdateView, ListView
 from users.forms import CustomUserCreationForm, UserUpdateForm
 from users.models import CustomUser
 from django.conf import settings
+from django.contrib import messages
+from django.contrib.auth.models import Group
 
 
 class RegisterView(CreateView):
@@ -62,3 +65,38 @@ class ProfileUpdateView(LoginRequiredMixin, UpdateView):
 
     def get_object(self, queryset=None):
         return self.request.user  # Возвращается обновленный текущий пользователь
+
+
+class ProfileListView(LoginRequiredMixin, ListView):
+    model = CustomUser
+    template_name = 'users/profile_list.html'
+    context_object_name = 'users'
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        if not (user.is_superuser or user.groups.filter(name='Managers').exists()):
+            messages.warning(request, 'У вас нет доступа!')
+            return redirect('mailing:home')
+        return super().get(request, *args, **kwargs)
+
+    def get_queryset(self):
+        return CustomUser.objects.filter(is_active=True).exclude(is_superuser=True).exclude(id=self.request.user.id)
+
+
+class DisableProfileView(LoginRequiredMixin, View):
+    def post(self, request, pk):
+        # Получаем объект модели
+        profile = get_object_or_404(CustomUser, pk=pk)
+        # Получаем группу "менеджеры"
+        managers_group = Group.objects.get(name="Managers")
+        # Проверяем, состоит ли текущий пользователь в группе "менеджеры"
+        if managers_group in request.user.groups.all():
+            # Если пользователь входит в группу "менеджеры", меняем статус пользователя
+            profile.is_active = False
+            profile.save()
+            # Подтверждение успешной операции
+            messages.success(request, "Профиль успешно деактивирован!")
+        else:
+            # Иначе сообщаем об ошибке
+            messages.warning(request, "У вас нет прав отключить рассылку.")
+        return redirect('users:profile_list')
