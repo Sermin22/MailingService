@@ -1,7 +1,5 @@
 {% extends 'mailing/base.html' %}
 
-{% load mailing_group_tags %}
-
 {% block title %}Рассылки{% endblock %}
 
 {% block content %}
@@ -13,7 +11,9 @@
             <div class="col-lg-6 col-md-8 mx-auto"><h1 class="fw-light">Рассылки</h1>
                 <p class="lead text-body-secondary">Подробнее о рассылках!</p>
                 <p>
-                    <a href="{% url 'mailing:mailingmodel_create' %}" class="btn btn-primary my-2">Добавить рассылку</a>
+                    {% if perms.mailing.add_mailingmodel %}
+                        <a href="{% url 'mailing:mailingmodel_create' %}" class="btn btn-primary my-2">Добавить рассылку</a>
+                    {% endif %}
                     <a href="#" class="btn btn-secondary my-2">Кнопка</a>
                 </p>
             </div>
@@ -56,17 +56,15 @@
                                     <a href="{% url 'mailing:mailingmodel_detail' mailing.pk %}">
                                         <button type="button" class="btn btn-sm btn-outline-secondary">Посмотреть</button>
                                     </a>
-                                    {% if request.user == mailing.owner or request.user.is_superuser %}
+                                    {% if perms.mailing.can_send_message %}
                                         <a href="{% url 'mailing:sending_mailing' mailing.pk %}">
                                             <button type="button" class="btn btn-sm btn-primary">Отправить</button>
                                         </a>
                                     {% endif %}
-                                    <!-- Здесь используется mailing_group_tags  -->
-                                    {% if request.user|in_group:"Managers" %}
-                                        <form method="post" action="{% url 'mailing:disable_mailing' mailing.pk %}" style="display: inline">
-                                            {% csrf_token %}
-                                            <button type="submit" class="btn btn-sm btn-danger">Отключить</button>
-                                        </form>
+                                    {% if perms.mailing.can_disable_mailing %}
+                                        <a href="{% url 'mailing:disable_mailing' mailing.pk %}">
+                                            <button type="button" class="btn btn-sm btn-danger">Отключить</button>
+                                        </a>
                                     {% endif %}
                                 </div>
                                 <small class="text-body-secondary"></small>

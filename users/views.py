@@ -1,7 +1,7 @@
 import secrets
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.mail import send_mail
-from django.shortcuts import redirect, get_object_or_404
+from django.shortcuts import redirect, get_object_or_404, render
 from django.urls import reverse_lazy, reverse
 from django.views import View
 from django.views.generic import CreateView, DetailView, UpdateView, ListView
@@ -12,6 +12,7 @@ from django.contrib import messages
 from django.contrib.auth.models import Group
 
 
+# новая версия с добавлением в группу владельца при создании
 class RegisterView(CreateView):
     template_name = 'users/register.html'
     form_class = CustomUserCreationForm
@@ -22,6 +23,12 @@ class RegisterView(CreateView):
         user.is_active = False
         token = secrets.token_hex(16)
         user.token = token
+        # Перед сохранением пользователя помещаем его в группу Owners
+        try:
+            owners_group = Group.objects.get(name='Owners')
+            user.groups.add(owners_group)
+        except Group.DoesNotExist:
+            pass  # Группа ещё не создана
         user.save()
         host = self.request.get_host()
         url = f'http://{host}/users/email-confirm/{token}'
@@ -72,26 +79,42 @@ class ProfileListView(LoginRequiredMixin, ListView):
     template_name = 'users/profile_list.html'
     context_object_name = 'users'
 
-    def get(self, request, *args, **kwargs):
-        user = request.user
-        if not (user.is_superuser or user.groups.filter(name='Managers').exists()):
-            messages.warning(request, 'У вас нет доступа!')
-            return redirect('mailing:home')
-        return super().get(request, *args, **kwargs)
-
     def get_queryset(self):
-        return CustomUser.objects.filter(is_active=True).exclude(is_superuser=True).exclude(id=self.request.user.id)
+        user = self.request.user
+        if user.has_perm('users.view_customuser'):
+            return CustomUser.objects.filter(is_active=True).exclude(is_superuser=True).exclude(id=self.request.user.id)
+
+
+# class ProfileListView(LoginRequiredMixin, ListView):
+#     model = CustomUser
+#     template_name = 'users/profile_list.html'
+#     context_object_name = 'users'
+#
+#     def get(self, request, *args, **kwargs):
+#         user = request.user
+#         if not (user.is_superuser or user.groups.filter(name='Managers').exists()):
+#             messages.warning(request, 'У вас нет доступа!')
+#             return redirect('mailing:home')
+#         return super().get(request, *args, **kwargs)
+#
+#     def get_queryset(self):
+#         return CustomUser.objects.filter(is_active=True).exclude(is_superuser=True).exclude(id=self.request.user.id)
 
 
 class DisableProfileView(LoginRequiredMixin, View):
+    def get(self, request, pk):
+        # Получаем объект профиля
+        profile = get_object_or_404(CustomUser, pk=pk)
+        # Формируем и отправляем страницу подтверждения
+        return render(request, 'users/confirm_disable_profile.html', {'profile': profile})
+
     def post(self, request, pk):
+        user = self.request.user
         # Получаем объект модели
         profile = get_object_or_404(CustomUser, pk=pk)
         # Получаем группу "менеджеры"
-        managers_group = Group.objects.get(name="Managers")
-        # Проверяем, состоит ли текущий пользователь в группе "менеджеры"
-        if managers_group in request.user.groups.all():
-            # Если пользователь входит в группу "менеджеры", меняем статус пользователя
+        if user.has_perm('users.can_deactivate_user'):
+            # Если пользователь обладает правом деактивации пользователя
             profile.is_active = False
             profile.save()
             # Подтверждение успешной операции
@@ -100,3 +123,21 @@ class DisableProfileView(LoginRequiredMixin, View):
             # Иначе сообщаем об ошибке
             messages.warning(request, "У вас нет прав отключить рассылку.")
         return redirect('users:profile_list')
+
+# class DisableProfileView(LoginRequiredMixin, View):
+#     def post(self, request, pk):
+#         # Получаем объект модели
+#         profile = get_object_or_404(CustomUser, pk=pk)
+#         # Получаем группу "менеджеры"
+#         managers_group = Group.objects.get(name="Managers")
+#         # Проверяем, состоит ли текущий пользователь в группе "менеджеры"
+#         if managers_group in request.user.groups.all():
+#             # Если пользователь входит в группу "менеджеры", меняем статус пользователя
+#             profile.is_active = False
+#             profile.save()
+#             # Подтверждение успешной операции
+#             messages.success(request, "Профиль успешно деактивирован!")
+#         else:
+#             # Иначе сообщаем об ошибке
+#             messages.warning(request, "У вас нет прав отключить рассылку.")
+#         return redirect('users:profile_list')

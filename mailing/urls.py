@@ -5,8 +5,7 @@ from mailing.views import (HomeView, SubscriberListView, SubscriberDetailView, S
                            MessageCreateView, MessageUpdateView, MessageDeleteView, MailingModelListView,
                            MailingModelCreateView, MailingModelDetailView, MailingModelUpdateView,
                            MailingModelDeleteView, SendingMailingView, MailingAttemptListView,
-                           DisableMailingView)
-from users.views import ProfileListView
+                           DisableMailingView, MailingAttemptAllListView)
 
 app_name = MailingConfig.name
 
@@ -30,5 +29,6 @@ urlpatterns = [
     path("mailing/<int:pk>/sending-mailing/", SendingMailingView.as_view(), name="sending_mailing"),
     path('mailing/<int:pk>/attempts/', MailingAttemptListView.as_view(), name='mailing_attempts'),
     path('mailing/<int:pk>/disable-mailing/', DisableMailingView.as_view(), name='disable_mailing'),
-    # path('profiles/', ProfileListView.as_view(), name='profile_list'),
+    path('mailing/attempt-list/', MailingAttemptAllListView.as_view(), name='attempt_list'),
+
 ]

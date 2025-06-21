@@ -11,7 +11,9 @@
             <div class="col-lg-6 col-md-8 mx-auto"><h1 class="fw-light">Получатели рассылок</h1>
                 <p class="lead text-body-secondary">Подробнее о наших подписчиках!</p>
                 <p>
-                    <a href="{% url 'mailing:subscriber_create' %}" class="btn btn-primary my-2">Добавить получателя рассылок</a>
+                    {% if perms.mailing.add_subscriber %}
+                        <a href="{% url 'mailing:subscriber_create' %}" class="btn btn-primary my-2">Добавить получателя рассылок</a>
+                    {% endif %}
                     <a href="#" class="btn btn-secondary my-2">Кнопка</a>
                 </p>
             </div>

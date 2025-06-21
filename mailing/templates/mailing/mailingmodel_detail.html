@@ -40,10 +40,12 @@
                                     <a href="{% url 'mailing:mailingmodel_list' %}">
                                         <button type="button" class="btn btn-sm btn-outline-secondary">Назад к списку</button>
                                     </a>
-                                    {% if request.user == mailing.owner or request.user.is_superuser %}
+                                    {% if perms.mailing.change_mailingmodel %}
                                         <a href="{% url 'mailing:mailingmodel_update' mailingmodel.pk %}">
                                             <button type="button" class="btn btn-sm btn-primary">Редактировать</button>
                                         </a>
+                                    {% endif %}
+                                    {% if perms.mailing.delete_mailingmodel %}
                                         <a href="{% url 'mailing:mailingmodel_delete' mailingmodel.pk %}">
                                             <button type="button" class="btn btn-sm btn-danger">Удалить</button>
                                         </a>

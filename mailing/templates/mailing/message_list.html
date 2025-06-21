@@ -11,7 +11,9 @@
             <div class="col-lg-6 col-md-8 mx-auto"><h1 class="fw-light">Сообщения</h1>
                 <p class="lead text-body-secondary">Подробнее о сообщениях нашим подписчикам!</p>
                 <p>
-                    <a href="{% url 'mailing:message_create' %}" class="btn btn-primary my-2">Добавить сообщение для рассылки</a>
+                    {% if perms.mailing.add_message %}
+                        <a href="{% url 'mailing:message_create' %}" class="btn btn-primary my-2">Добавить сообщение для рассылки</a>
+                    {% endif %}
                     <a href="#" class="btn btn-secondary my-2">Кнопка</a>
                 </p>
             </div>

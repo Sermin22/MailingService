@@ -19,10 +19,12 @@
                                     <a href="{% url 'mailing:message_list' %}">
                                         <button type="button" class="btn btn-sm btn-outline-secondary">Назад к списку</button>
                                     </a>
-                                    {% if request.user == subscriber.owner %}
+                                    {% if perms.mailing.change_message %}
                                         <a href="{% url 'mailing:message_update' message.pk %}">
                                             <button type="button" class="btn btn-sm btn-primary">Редактировать</button>
                                         </a>
+                                    {% endif %}
+                                    {% if perms.mailing.delete_message %}
                                         <a href="{% url 'mailing:message_delete' message.pk %}">
                                             <button type="button" class="btn btn-sm btn-danger">Удалить</button>
                                         </a>

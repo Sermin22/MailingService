@@ -1,4 +1,4 @@
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.core.mail import send_mail
 from django.shortcuts import render, get_object_or_404, redirect
@@ -25,6 +25,7 @@ class HomeView(TemplateView):
 
 
 class SubscriberListView(LoginRequiredMixin, ListView):
+    '''Список получателей рассылки (подписчиков)'''
     model = Subscriber
     template_name = 'mailing/subscriber_list.html'  # можно не указывать, это стандартный путь
     context_object_name = 'subscriber_list'  # можно не указывать, если использовать это
@@ -32,20 +33,26 @@ class SubscriberListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         user = self.request.user
-        # Проверяем, состоит ли пользователь членом в группе "Менеджеры"
-        managers_group = Group.objects.get(name="Managers")
-        if managers_group in user.groups.all():
-            # Менеджеры видят всех подписчиков
-            return Subscriber.objects.all()
-        elif user.is_superuser:
-            # Суперпользователи тоже видят всех подписчиков
-            return Subscriber.objects.all()
-        else:
-            # Пользователи видят только своих собственных подписчиков
-            return Subscriber.objects.filter(owner=user)
+        try:
+            # Получаем группу Owners
+            owners_group = Group.objects.get(name='Owners')
+            # Проверяем, состоит ли пользователь в группе Owners
+            if owners_group in user.groups.all():
+                # Если пользователь в группе Owners, возвращаем только его подписчиков
+                return Subscriber.objects.filter(owner=user)
+            # Если пользователь не в группе Owners, проверяем наличие права на просмотр всех подписчиков
+            elif user.has_perm('mailing.view_subscriber'):
+                # Если у пользователя есть разрешение, возвращаем всех подписчиков
+                return Subscriber.objects.all()
+        except Group.DoesNotExist:
+            # Если группа Owners не найдена, возвращаем пустой список
+            return Subscriber.objects.none()
+        # Если пользователь не попадает ни в одну категорию, возвращаем пустой список
+        return Subscriber.objects.none()
 
 
 class SubscriberDetailView(LoginRequiredMixin, DetailView):
+    '''Детальная информация по получателю рассылки (подписчику)'''
     model = Subscriber
     template_name = 'mailing/subscriber_detail.html'  # можно не указывать, это стандартный путь
     context_object_name = 'subscriber'  # можно не указывать, стандартное название в шаблоне 'subscriber'
@@ -53,22 +60,24 @@ class SubscriberDetailView(LoginRequiredMixin, DetailView):
     def get_object(self, queryset=None):
         obj = super().get_object(queryset)
         user = self.request.user
-        managers_group = Group.objects.get(name="Managers")
-        # Проверяем, является ли пользователь менеджером или суперпользователем
-        if managers_group in user.groups.all() or user.is_superuser:
+        # Если пользователь является владельцем объекта, видит свой объект
+        if user == obj.owner:
             return obj
-        # Обычные пользователи видят только своих подписчиков
-        elif user == obj.owner:
+        # Если пользователь не владелец, проверяем наличие права на просмотр всех подписчиков
+        elif user.has_perm('mailing.view_subscriber'):
             return obj
-        # Запрещаем доступ остальным пользователям
-        raise PermissionDenied
+        # Если пользователь не владелец и не имеет права на просмотр, запрещаем доступ
+        else:
+            raise PermissionDenied("У Вас недостаточно прав для просмотра этого профиля.")
 
 
-class SubscriberCreateView(LoginRequiredMixin, CreateView):
+class SubscriberCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    '''Создание нового получателя рассылки (подписчика)'''
     model = Subscriber
     form_class = SubscriberForm
     template_name = 'mailing/subscriber_form.html'
     success_url = reverse_lazy('mailing:subscriber_list')
+    permission_required = 'mailing.add_subscriber'
 
     def form_valid(self, form):
         subscriber = form.save()
@@ -79,62 +88,80 @@ class SubscriberCreateView(LoginRequiredMixin, CreateView):
 
 
 class SubscriberUpdateView(LoginRequiredMixin, UpdateView):
+    '''Обновление получателя рассылки (подписчика)'''
     model = Subscriber
     form_class = SubscriberForm
     template_name = 'mailing/subscriber_form.html'
     context_object_name = 'subscriber'
+    permission_required = 'mailing.change_subscriber'
 
     def get_success_url(self):
         return reverse_lazy('mailing:subscriber_detail', kwargs={'pk': self.object.pk})
 
     def get_object(self, queryset=None):
         obj = super().get_object(queryset)
-        if self.request.user == obj.owner:
+        user = self.request.user
+        # Если пользователь является владельцем объекта, допускаем доступ
+        if user == obj.owner:
             return obj
-        raise PermissionDenied
-
-    # def form_valid(self, form):
-    #     subscriber = self.get_object()
-    #     user = self.request.user
-    #     # Если пользователь — владелец, разрешить всё
-    #     if subscriber.owner == user:
-    #         return super().form_valid(form)
+        # Если пользователь не владелец, проверяем наличие права на изменение любых подписчиков
+        elif user.has_perm('mailing.change_subscriber'):
+            return obj
+        # Если пользователь не владелец и не имеет права на изменение, запрещаем доступ
+        else:
+            raise PermissionDenied("У Вас недостаточно прав для изменения.")
 
 
 class SubscriberDeleteView(LoginRequiredMixin, DeleteView):
+    '''Удаление получателя рассылки (подписчика)'''
     model = Subscriber
     template_name = 'mailing/subscriber_confirm_delete.html'
     context_object_name = 'subscriber'
     success_url = reverse_lazy('mailing:subscriber_list')
+    permission_required = 'mailing.delete_subscriber'
 
     def get_object(self, queryset=None):
         obj = super().get_object(queryset)
-        if self.request.user == obj.owner:
+        user = self.request.user
+        # Если пользователь является владельцем объекта, допускаем доступ
+        if user == obj.owner:
             return obj
-        raise PermissionDenied
+        # Если пользователь не владелец, проверяем наличие права на изменение любых подписчиков
+        elif user.has_perm('mailing.delete_subscriber'):
+            return obj
+        # Если пользователь не владелец и не имеет права на изменение, запрещаем доступ
+        else:
+            raise PermissionDenied("У Вас недостаточно прав для удаления.")
 
 
 class MessageListView(LoginRequiredMixin, ListView):
+    '''Список сообщений для рассылки'''
     model = Message
     template_name = 'mailing/message_list.html'
     context_object_name = 'message_list'
 
     def get_queryset(self):
         user = self.request.user
-        # Проверяем, состоит ли пользователь членом в группе "Менеджеры"
-        managers_group = Group.objects.get(name="Managers")
-        if managers_group in user.groups.all():
-            # Менеджеры видят всех подписчиков
-            return Message.objects.all()
-        elif user.is_superuser:
-            # Суперпользователи тоже видят всех подписчиков
-            return Message.objects.all()
-        else:
-            # Пользователи видят только своих собственных подписчиков
-            return Message.objects.filter(owner=user)
+        try:
+            # Получаем группу Owners
+            owners_group = Group.objects.get(name='Owners')
+            # Проверяем, состоит ли пользователь в группе Owners
+            if owners_group in user.groups.all():
+                # Если пользователь в группе Owners, возвращаем только его сообщения
+                return Message.objects.filter(owner=user)
+            # Если пользователь не в группе Owners, проверяем наличие права на просмотр всех сообщений
+            elif user.has_perm('mailing.view_message'):
+                # Если у пользователя есть разрешение, возвращаем все сообщения
+                return Message.objects.all()
+        except Group.DoesNotExist:
+            # Если группа Owners не найдена, возвращаем пустой список
+            return Message.objects.none()
+        # Если пользователь не попадает ни в одну категорию, возвращаем пустой список
+        return Message.objects.none()
 
 
 class MessageDetailView(LoginRequiredMixin, DetailView):
+    '''Детальная информация о сообщении'''
     model = Message
     template_name = 'mailing/message_detail.html'
     context_object_name = 'message'
@@ -142,22 +169,24 @@ class MessageDetailView(LoginRequiredMixin, DetailView):
     def get_object(self, queryset=None):
         obj = super().get_object(queryset)
         user = self.request.user
-        managers_group = Group.objects.get(name="Managers")
-        # Проверяем, является ли пользователь менеджером или суперпользователем
-        if managers_group in user.groups.all() or user.is_superuser:
+        # Если пользователь является владельцем объекта, видит свой объект
+        if user == obj.owner:
             return obj
-        # Обычные пользователи видят только своих подписчиков
-        elif user == obj.owner:
+        # Если пользователь не владелец, проверяем наличие права на просмотр всех подписчиков
+        elif user.has_perm('mailing.view_message'):
             return obj
-        # Запрещаем доступ остальным пользователям
-        raise PermissionDenied
+        # Если пользователь не владелец и не имеет права на просмотр, запрещаем доступ
+        else:
+            raise PermissionDenied("У Вас недостаточно прав для просмотра.")
 
 
-class MessageCreateView(LoginRequiredMixin, CreateView):
+class MessageCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    '''Создание нового сообщения'''
     model = Message
     form_class = MessageForm
     template_name = 'mailing/message_form.html'
     success_url = reverse_lazy('mailing:message_list')
+    permission_required = 'mailing.add_message'
 
     def form_valid(self, form):
         message = form.save()
@@ -168,56 +197,81 @@ class MessageCreateView(LoginRequiredMixin, CreateView):
 
 
 class MessageUpdateView(LoginRequiredMixin, UpdateView):
+    '''Изменение сообщения'''
     model = Message
     form_class = MessageForm
     template_name = 'mailing/message_form.html'
     context_object_name = 'message'
+    permission_required = 'mailing.change_message'
 
     def get_success_url(self):
         return reverse_lazy('mailing:message_detail', kwargs={'pk': self.object.pk})
 
     def get_object(self, queryset=None):
         obj = super().get_object(queryset)
-        if self.request.user == obj.owner:
+        user = self.request.user
+        # Если пользователь является владельцем объекта, допускаем доступ
+        if user == obj.owner:
             return obj
-        raise PermissionDenied
+        # Если пользователь не владелец, проверяем наличие права на изменение любых подписчиков
+        elif user.has_perm('mailing.change_message'):
+            return obj
+        # Если пользователь не владелец и не имеет права на изменение, запрещаем доступ
+        else:
+            raise PermissionDenied("У Вас недостаточно прав для изменения.")
 
 
 class MessageDeleteView(LoginRequiredMixin, DeleteView):
+    '''Удаление сообщения'''
     model = Message
     template_name = 'mailing/message_confirm_delete.html'
     context_object_name = 'message'
     success_url = reverse_lazy('mailing:message_list')
+    permission_required = 'mailing.delete_message'
 
     def get_object(self, queryset=None):
         obj = super().get_object(queryset)
-        if self.request.user == obj.owner:
+        user = self.request.user
+        # Если пользователь является владельцем объекта, допускаем доступ
+        if user == obj.owner:
             return obj
-        raise PermissionDenied
+        # Если пользователь не владелец, проверяем наличие права на изменение любых подписчиков
+        elif user.has_perm('mailing.delete_message'):
+            return obj
+        # Если пользователь не владелец и не имеет права на изменение, запрещаем доступ
+        else:
+            raise PermissionDenied("У Вас недостаточно прав для удаления.")
 
 
 class MailingModelListView(LoginRequiredMixin, ListView):
+    '''Список рассылок'''
     model = MailingModel
     template_name = 'mailing/mailingmodel_list.html'
     context_object_name = 'mailingmodel_list'
 
     def get_queryset(self):
         user = self.request.user
-        # Проверяем, состоит ли пользователь членом в группе "Менеджеры"
-        managers_group = Group.objects.get(name="Managers")
-        if managers_group in user.groups.all():
-            # Менеджеры видят всех подписчиков
-            return MailingModel.objects.all()
-        elif user.is_superuser:
-            # Суперпользователи тоже видят всех подписчиков
-            return MailingModel.objects.all()
-        else:
-            # Пользователи видят только своих собственных подписчиков
-            return MailingModel.objects.filter(owner=user)
+        try:
+            # Получаем группу Owners
+            owners_group = Group.objects.get(name='Owners')
+            # Проверяем, состоит ли пользователь в группе Owners
+            if owners_group in user.groups.all():
+                # Если пользователь в группе Owners, возвращаем только его рассылки
+                return MailingModel.objects.filter(owner=user)
+            # Если пользователь не в группе Owners, проверяем наличие права на просмотр всех рассылок
+            elif user.has_perm('mailing.view_mailingmodel'):
+                # Если у пользователя есть разрешение, возвращаем все рассылки
+                return MailingModel.objects.all()
+        except Group.DoesNotExist:
+            # Если группа Owners не найдена, возвращаем пустой список
+            return MailingModel.objects.none()
+        # Если пользователь не попадает ни в одну категорию, возвращаем пустой список
+        return MailingModel.objects.none()
 
 
 
 class MailingModelDetailView(LoginRequiredMixin, DetailView):
+    '''Детальная информация о рассылке'''
     model = MailingModel
     template_name = 'mailing/mailingmodel_detail.html'
     context_object_name = 'mailingmodel'
@@ -225,22 +279,24 @@ class MailingModelDetailView(LoginRequiredMixin, DetailView):
     def get_object(self, queryset=None):
         obj = super().get_object(queryset)
         user = self.request.user
-        managers_group = Group.objects.get(name="Managers")
-        # Проверяем, является ли пользователь менеджером или суперпользователем
-        if managers_group in user.groups.all() or user.is_superuser:
+        # Если пользователь является владельцем объекта, видит свой объект
+        if user == obj.owner:
             return obj
-        # Обычные пользователи видят только своих подписчиков
-        elif user == obj.owner:
+        # Если пользователь не владелец, проверяем наличие права на просмотр всех подписчиков
+        elif user.has_perm('mailing.view_mailingmodel'):
             return obj
-        # Запрещаем доступ остальным пользователям
-        raise PermissionDenied
+        # Если пользователь не владелец и не имеет права на просмотр, запрещаем доступ
+        else:
+            raise PermissionDenied("У Вас недостаточно прав для просмотра.")
 
 
-class MailingModelCreateView(LoginRequiredMixin, CreateView):
+class MailingModelCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    '''Создание новой рассылки'''
     model = MailingModel
     form_class = MailingModelForm
     template_name = 'mailing/mailingmodel_form.html'
     success_url = reverse_lazy('mailing:mailingmodel_list')
+    permission_required = 'mailing.add_mailingmodel'
 
     def form_valid(self, form):
         mailing = form.save()
@@ -251,6 +307,7 @@ class MailingModelCreateView(LoginRequiredMixin, CreateView):
 
 
 class MailingModelUpdateView(LoginRequiredMixin, UpdateView):
+    '''Изменение рассылки'''
     model = MailingModel
     form_class = MailingModelForm
     template_name = 'mailing/mailingmodel_form.html'
@@ -261,33 +318,56 @@ class MailingModelUpdateView(LoginRequiredMixin, UpdateView):
 
     def get_object(self, queryset=None):
         obj = super().get_object(queryset)
-        if self.request.user == obj.owner:
+        user = self.request.user
+        # Если пользователь является владельцем объекта, допускаем доступ
+        if user == obj.owner:
             return obj
-        raise PermissionDenied
+        # Если пользователь не владелец, проверяем наличие права на изменение любых рассылок
+        elif user.has_perm('mailing.change_mailingmodel'):
+            return obj
+        # Если пользователь не владелец и не имеет права на изменение, запрещаем доступ
+        else:
+            raise PermissionDenied("У Вас недостаточно прав для изменения.")
 
 
 class MailingModelDeleteView(LoginRequiredMixin, DeleteView):
+    '''Удаление рассылки'''
     model = MailingModel
     template_name = 'mailing/mailingmodel_confirm_delete.html'
     context_object_name = 'mailingmodel'
     success_url = reverse_lazy('mailing:mailingmodel_list')
+    permission_required = 'mailing.delete_mailingmodel'
 
     def get_object(self, queryset=None):
         obj = super().get_object(queryset)
-        if self.request.user == obj.owner:
+        user = self.request.user
+        # Если пользователь является владельцем объекта, допускаем доступ
+        if user == obj.owner:
             return obj
-        raise PermissionDenied
+        # Если пользователь не владелец, проверяем наличие права на изменение любых подписчиков
+        elif user.has_perm('mailing.delete_mailingmodel'):
+            return obj
+        # Если пользователь не владелец и не имеет права на изменение, запрещаем доступ
+        else:
+            raise PermissionDenied("У Вас недостаточно прав для удаления.")
 
 
 class DisableMailingView(LoginRequiredMixin, View):
+    '''Деактивация рассылки'''
+    def get(self, request, pk):
+        # Получаем объект рассылки
+        mailing = get_object_or_404(MailingModel, pk=pk)
+        # Формируем и отправляем страницу подтверждения
+        return render(request, 'mailing/confirm_disable_mailing.html', {'mailing': mailing})
+
     def post(self, request, pk):
         # Получаем объект модели
         mailing = get_object_or_404(MailingModel, pk=pk)
-        # Получаем группу "менеджеры"
-        managers_group = Group.objects.get(name="Managers")
-        # Проверяем, состоит ли текущий пользователь в группе "менеджеры"
-        if managers_group in request.user.groups.all():
-            # Если пользователь входит в группу "менеджеры", отключаем рассылку
+        # Получаем текущего пользователя
+        user = self.request.user
+        # Проверяем, обладает ли пользователь правом отключения рассылки
+        if user.has_perm('mailing.can_disable_mailing'):
+            # Если пользователь обладает правом отключения рассылки, деактивируем рассылку
             mailing.is_active = False
             mailing.save()
             # Подтверждение успешной операции
@@ -299,13 +379,14 @@ class DisableMailingView(LoginRequiredMixin, View):
 
 
 class SendingMailingView(LoginRequiredMixin, View):
-    '''Класс осуществляющий отправку рассылки и формирующий попытку рассылки — это запись в БД о каждой
-    попытке отправки сообщения по рассылке по каждому подписчику'''
+    '''Класс осуществляющий отправку рассылки и формирующий попытку рассылки (запись в БД о каждой
+    попытке отправки сообщения по рассылке по каждому подписчику)'''
 
     def get(self, request, pk):
         mailing = get_object_or_404(MailingModel, pk=pk)
+        user = self.request.user
         # Проверка владелец ли это данной рассылки
-        if mailing.owner != request.user:
+        if not user.has_perm('mailing.can_send_message'):
             messages.warning(request, 'У вас нет прав на управление этой рассылкой.')
             return redirect('mailing:mailingmodel_list')
         date_and_time_now = timezone.now()
@@ -359,6 +440,11 @@ class SendingMailingView(LoginRequiredMixin, View):
 
         return redirect('mailing:mailingmodel_list')
 
+class MailingAttemptAllListView(LoginRequiredMixin, ListView):
+    model = MailingAttempt
+    template_name = 'mailing/mailing_attempt_all_list.html'
+    context_object_name = 'attempt_list'
+
 
 class MailingAttemptListView(LoginRequiredMixin, ListView):
     model = MailingAttempt
@@ -372,38 +458,3 @@ class MailingAttemptListView(LoginRequiredMixin, ListView):
         context = super().get_context_data(**kwargs)
         context['mailing'] = MailingModel.objects.get(pk=self.kwargs['pk'])
         return context
-
-
-# class SendingMailingView(View):
-#     '''Класс осуществляющий отправку рассылки'''
-#
-#     def get(self, request, pk):
-#         mailing = get_object_or_404(MailingModel, pk=pk)
-#         if mailing.status == 'finished':
-#             messages.error(request, 'Нельзя отправить завершённую рассылку.')
-#             return redirect('mailing:mailingmodel_list')
-#         return render(request, 'mailing/confirm_send.html', {'mailing': mailing})
-#
-#     def post(self, request, pk):
-#         mailing = get_object_or_404(MailingModel, pk=pk)
-#         subject = mailing.message.subject
-#         body = mailing.message.body
-#         subscriber = mailing.subscriber.all()
-#
-#         emails = [p.email for p in subscriber]
-#
-#         if emails:
-#             send_mail(
-#                 subject=subject,
-#                 message=body,
-#                 from_email=settings.EMAIL_HOST_USER,
-#                 recipient_list=emails,
-#                 fail_silently=False,
-#             )
-#             messages.success(request, f'Рассылка отправлена {len(emails)} получателям.')
-#             mailing.status = 'started'
-#             mailing.save()
-#         else:
-#             messages.warning(request, 'У рассылки нет получателей.')
-#
-#         return redirect('mailing:mailingmodel_list')

@@ -85,17 +85,18 @@ class MailingModel(models.Model):
     class Meta:
         verbose_name = "Рассылка"
         verbose_name_plural = "Рассылки"
-        ordering = ["-beginning_sending"]
+        ordering = ["beginning_sending"]
         permissions = [
             ("can_disable_mailing", "Can disable mailing"),
+            ("can_send_message", "Can send_message"),
         ]
 
     def __str__(self):
         return f"Рассылка #{self.pk} - {self.status}"
 
 
-# Модель попытка рассылки
 class MailingAttempt(models.Model):
+    '''Модель попытка рассылки'''
     SUCCESSFULLY = "successfully"
     NOT_SUCCESSFULL = "not_successful"
 
@@ -112,7 +113,7 @@ class MailingAttempt(models.Model):
     class Meta:
         verbose_name = "Попытка рассылки"
         verbose_name_plural = "Попытки рассылок"
-        ordering = ["-date_and_time"]
+        ordering = ["date_and_time"]
 
     def __str__(self):
         return f"{self.date_and_time} - {self.status}"
