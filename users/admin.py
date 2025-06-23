@@ -21,4 +21,3 @@ class CustomUserAdmin(UserAdmin):
         'avatar',
     )
     list_filter = ('is_staff', 'is_superuser', 'is_active', 'groups')
-

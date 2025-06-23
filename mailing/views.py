@@ -15,6 +15,7 @@ from django.utils import timezone
 from mailing.services import get_subscriber_list_from_cache, get_message_list_from_cache, get_mailing_list_from_cache
 # from django.contrib.auth.models import Group
 
+
 class HomeView(TemplateView):
     template_name = 'mailing/home.html'
 
@@ -465,6 +466,7 @@ class SendingMailingView(LoginRequiredMixin, View):
 
         return redirect('mailing:mailingmodel_list')
 
+
 class MailingAttemptAllListView(LoginRequiredMixin, ListView):
     model = MailingAttempt
     template_name = 'mailing/mailing_attempt_all_list.html'
@@ -477,7 +479,7 @@ class MailingAttemptListView(LoginRequiredMixin, ListView):
     context_object_name = 'attempts'
 
     def get_queryset(self):
-        return MailingAttempt.objects.filter(mailing_id=self.kwargs['pk'] )
+        return MailingAttempt.objects.filter(mailing_id=self.kwargs['pk'])
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

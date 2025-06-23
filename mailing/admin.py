@@ -21,6 +21,7 @@ class MailingModelAdmin(admin.ModelAdmin):
     list_display = ('id', 'beginning_sending', 'end_sending', 'is_active', 'owner')
     list_filter = ('is_active', 'owner')
 
+
 # admin.site.register(MailingAttempt)
 @admin.register(MailingAttempt)
 class MailingAttemptAdmin(admin.ModelAdmin):

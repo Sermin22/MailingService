@@ -82,7 +82,9 @@ class ProfileListView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         user = self.request.user
         if user.has_perm('users.view_customuser'):
-            return CustomUser.objects.filter(is_active=True).exclude(is_superuser=True).exclude(id=self.request.user.id)
+            return (CustomUser.objects.filter(is_active=True)
+                                      .exclude(is_superuser=True)
+                                      .exclude(id=self.request.user.id))
 
 
 # class ProfileListView(LoginRequiredMixin, ListView):

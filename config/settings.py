@@ -153,7 +153,7 @@ AUTH_USER_MODEL = "users.CustomUser"
 LOGIN_URL = "users:login"  # Пользователь, пытающийся зайти на защищенную страницу, будет перенаправлен
 
 LOGIN_REDIRECT_URL = "mailing:home"  # Пользователь попадёт сюда после авторизации
-LOGOUT_REDIRECT_URL = "mailing:home" # Пользователь попадёт сюда после выхода
+LOGOUT_REDIRECT_URL = "mailing:home"  # Пользователь попадёт сюда после выхода
 
 CACHE_ENABLED = True
 if CACHE_ENABLED:
