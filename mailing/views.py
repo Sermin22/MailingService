@@ -3,15 +3,17 @@ from django.core.exceptions import PermissionDenied
 from django.core.mail import send_mail
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse_lazy
+from django.utils.decorators import method_decorator
 from django.views import View
 from django.contrib import messages
+from django.views.decorators.cache import cache_page
 from django.views.generic import TemplateView, ListView, DetailView, CreateView, UpdateView, DeleteView
 from mailing.forms import SubscriberForm, MessageForm, MailingModelForm
 from mailing.models import Subscriber, Message, MailingModel, MailingAttempt
 from django.conf import settings
 from django.utils import timezone
-from django.contrib.auth.models import Group
-
+from mailing.services import get_subscriber_list_from_cache, get_message_list_from_cache, get_mailing_list_from_cache
+# from django.contrib.auth.models import Group
 
 class HomeView(TemplateView):
     template_name = 'mailing/home.html'
@@ -33,24 +35,32 @@ class SubscriberListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         user = self.request.user
-        try:
-            # Получаем группу Owners
-            owners_group = Group.objects.get(name='Owners')
-            # Проверяем, состоит ли пользователь в группе Owners
-            if owners_group in user.groups.all():
-                # Если пользователь в группе Owners, возвращаем только его подписчиков
-                return Subscriber.objects.filter(owner=user)
-            # Если пользователь не в группе Owners, проверяем наличие права на просмотр всех подписчиков
-            elif user.has_perm('mailing.view_subscriber'):
-                # Если у пользователя есть разрешение, возвращаем всех подписчиков
-                return Subscriber.objects.all()
-        except Group.DoesNotExist:
-            # Если группа Owners не найдена, возвращаем пустой список
-            return Subscriber.objects.none()
-        # Если пользователь не попадает ни в одну категорию, возвращаем пустой список
-        return Subscriber.objects.none()
+        # Используем сервисную функцию и получаем список получателей рассылки из кеша.
+        # Если кеш пуст, то сервисная функция получает данные из БД
+        return get_subscriber_list_from_cache(user)
+
+    # # Без кеширования
+    # def get_queryset(self):
+    #     user = self.request.user
+    #     try:
+    #         # Получаем группу Owners
+    #         owners_group = Group.objects.get(name='Owners')
+    #         # Проверяем, состоит ли пользователь в группе Owners
+    #         if owners_group in user.groups.all():
+    #             # Если пользователь в группе Owners, возвращаем только его подписчиков
+    #             return Subscriber.objects.filter(owner=user)
+    #         # Если пользователь не в группе Owners, проверяем наличие права на просмотр всех подписчиков
+    #         elif user.has_perm('mailing.view_subscriber'):
+    #             # Если у пользователя есть разрешение, возвращаем всех подписчиков
+    #             return Subscriber.objects.all()
+    #     except Group.DoesNotExist:
+    #         # Если группа Owners не найдена, возвращаем пустой список
+    #         return Subscriber.objects.none()
+    #     # Если пользователь не попадает ни в одну категорию, возвращаем пустой список
+    #     return Subscriber.objects.none()
 
 
+@method_decorator(cache_page(20), name='dispatch')
 class SubscriberDetailView(LoginRequiredMixin, DetailView):
     '''Детальная информация по получателю рассылки (подписчику)'''
     model = Subscriber
@@ -142,24 +152,32 @@ class MessageListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         user = self.request.user
-        try:
-            # Получаем группу Owners
-            owners_group = Group.objects.get(name='Owners')
-            # Проверяем, состоит ли пользователь в группе Owners
-            if owners_group in user.groups.all():
-                # Если пользователь в группе Owners, возвращаем только его сообщения
-                return Message.objects.filter(owner=user)
-            # Если пользователь не в группе Owners, проверяем наличие права на просмотр всех сообщений
-            elif user.has_perm('mailing.view_message'):
-                # Если у пользователя есть разрешение, возвращаем все сообщения
-                return Message.objects.all()
-        except Group.DoesNotExist:
-            # Если группа Owners не найдена, возвращаем пустой список
-            return Message.objects.none()
-        # Если пользователь не попадает ни в одну категорию, возвращаем пустой список
-        return Message.objects.none()
+        # Используем сервисную функцию и получаем список сообщений из кеша.
+        # Если кеш пуст, то сервисная функция получает данные из БД
+        return get_message_list_from_cache(user)
+
+    # # без кеширования
+    # def get_queryset(self):
+    #     user = self.request.user
+    #     try:
+    #         # Получаем группу Owners
+    #         owners_group = Group.objects.get(name='Owners')
+    #         # Проверяем, состоит ли пользователь в группе Owners
+    #         if owners_group in user.groups.all():
+    #             # Если пользователь в группе Owners, возвращаем только его сообщения
+    #             return Message.objects.filter(owner=user)
+    #         # Если пользователь не в группе Owners, проверяем наличие права на просмотр всех сообщений
+    #         elif user.has_perm('mailing.view_message'):
+    #             # Если у пользователя есть разрешение, возвращаем все сообщения
+    #             return Message.objects.all()
+    #     except Group.DoesNotExist:
+    #         # Если группа Owners не найдена, возвращаем пустой список
+    #         return Message.objects.none()
+    #     # Если пользователь не попадает ни в одну категорию, возвращаем пустой список
+    #     return Message.objects.none()
 
 
+@method_decorator(cache_page(20), name='dispatch')
 class MessageDetailView(LoginRequiredMixin, DetailView):
     '''Детальная информация о сообщении'''
     model = Message
@@ -251,25 +269,32 @@ class MailingModelListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         user = self.request.user
-        try:
-            # Получаем группу Owners
-            owners_group = Group.objects.get(name='Owners')
-            # Проверяем, состоит ли пользователь в группе Owners
-            if owners_group in user.groups.all():
-                # Если пользователь в группе Owners, возвращаем только его рассылки
-                return MailingModel.objects.filter(owner=user)
-            # Если пользователь не в группе Owners, проверяем наличие права на просмотр всех рассылок
-            elif user.has_perm('mailing.view_mailingmodel'):
-                # Если у пользователя есть разрешение, возвращаем все рассылки
-                return MailingModel.objects.all()
-        except Group.DoesNotExist:
-            # Если группа Owners не найдена, возвращаем пустой список
-            return MailingModel.objects.none()
-        # Если пользователь не попадает ни в одну категорию, возвращаем пустой список
-        return MailingModel.objects.none()
+        # Используем сервисную функцию и получаем список рассылок из кеша.
+        # Если кеш пуст, то сервисная функция получает данные из БД
+        return get_mailing_list_from_cache(user)
+
+    # # без кеширования
+    # def get_queryset(self):
+    #     user = self.request.user
+    #     try:
+    #         # Получаем группу Owners
+    #         owners_group = Group.objects.get(name='Owners')
+    #         # Проверяем, состоит ли пользователь в группе Owners
+    #         if owners_group in user.groups.all():
+    #             # Если пользователь в группе Owners, возвращаем только его рассылки
+    #             return MailingModel.objects.filter(owner=user)
+    #         # Если пользователь не в группе Owners, проверяем наличие права на просмотр всех рассылок
+    #         elif user.has_perm('mailing.view_mailingmodel'):
+    #             # Если у пользователя есть разрешение, возвращаем все рассылки
+    #             return MailingModel.objects.all()
+    #     except Group.DoesNotExist:
+    #         # Если группа Owners не найдена, возвращаем пустой список
+    #         return MailingModel.objects.none()
+    #     # Если пользователь не попадает ни в одну категорию, возвращаем пустой список
+    #     return MailingModel.objects.none()
 
 
-
+@method_decorator(cache_page(20), name='dispatch')
 class MailingModelDetailView(LoginRequiredMixin, DetailView):
     '''Детальная информация о рассылке'''
     model = MailingModel

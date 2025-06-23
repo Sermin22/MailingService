@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Subscriber, Message, MailingModel
+from .models import Subscriber, Message, MailingModel, MailingAttempt
 
 
 @admin.register(Subscriber)
@@ -15,8 +15,14 @@ class MessageAdmin(admin.ModelAdmin):
     search_fields = ('subject',)
 
 
-#admin.site.register(MailingModel)
+# admin.site.register(MailingModel)
 @admin.register(MailingModel)
 class MailingModelAdmin(admin.ModelAdmin):
     list_display = ('id', 'beginning_sending', 'end_sending', 'is_active', 'owner')
     list_filter = ('is_active', 'owner')
+
+# admin.site.register(MailingAttempt)
+@admin.register(MailingAttempt)
+class MailingAttemptAdmin(admin.ModelAdmin):
+    list_display = ('id', 'date_and_time', 'status',)
+    list_filter = ('status',)

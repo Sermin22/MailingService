@@ -16,6 +16,7 @@
                             <thead class="table-light">
                                 <tr>
                                     <th>Время</th>
+                                    <th>Рассылка</th>
                                     <th>Статус</th>
                                     <th>Ответ почтового сервера</th>
                                 </tr>
@@ -24,6 +25,7 @@
                                 {% for attempt in attempt_list %}
                                 <tr>
                                     <td>{{ attempt.date_and_time }}</td>
+                                    <td>{{ attempt.mailing.id }}</td>
                                     <td>{{ attempt.get_status_display }}</td>
                                     <td>{{ attempt.server_mail_response }}</td>
                                 </tr>

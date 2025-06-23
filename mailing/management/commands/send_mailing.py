@@ -1,7 +1,8 @@
 from django.core.mail import send_mail
 from django.core.management.base import BaseCommand, CommandError
-from mailing.models import MailingModel
+from mailing.models import MailingModel, MailingAttempt
 from django.conf import settings
+from django.utils import timezone
 
 
 class Command(BaseCommand):
@@ -18,7 +19,7 @@ class Command(BaseCommand):
         except MailingModel.DoesNotExist:
             raise CommandError('Рассылка не найдена.')
 
-        if mailing.status == 'finished':
+        if mailing.status == MailingModel.FINISHED:
             self.stdout.write(self.style.ERROR('Рассылка завершена. Отправка невозможна.'))
             return
 
@@ -28,22 +29,35 @@ class Command(BaseCommand):
         emails = [p.email for p in subscriber]
 
         if not emails:
-            self.stdout.write(self.style.WARNING('Нет получателей.'))
-            return
+            self.stdout.write(self.style.WARNING('У рассылки нет получателей.'))
+        for email in emails:
+            try:
+                send_mail(
+                    subject=subject,
+                    message=body,
+                    from_email=settings.EMAIL_HOST_USER,
+                    recipient_list=[email],
+                    fail_silently=False,
+                )
+                mailing.status = MailingModel.STARTED
+                mailing.save()
 
-        send_mail(
-            subject=subject,
-            message=body,
-            from_email=settings.EMAIL_HOST_USER,
-            recipient_list=emails,
-            fail_silently=False,
-        )
-        mailing.status = 'started'
-        mailing.save()
+                status_mailing_attempt = MailingAttempt.SUCCESSFULLY
+                server_mail_response = 'Письмо отправлено'
 
-        self.stdout.write(self.style.SUCCESS(f'Отправлено {len(emails)} писем.'))
+            except Exception as e:
+                status_mailing_attempt = MailingAttempt.NOT_SUCCESSFULL
+                server_mail_response = str(e)
 
-        # отправляется рассылка командой python manage.py send_mailing 7 (7 - это ID рассылки)
-        # Если принимать несколько ID, можно использовать nargs='+':
-        # parser.add_argument('pk', type=int, nargs='+', help='ID одной или нескольких рассылок')
-        # отправляются командой python manage.py send_mailing 3 5 7 (3,5,7 - это ID рассылок)
+            MailingAttempt.objects.create(
+                date_and_time=timezone.now(),
+                status=status_mailing_attempt,
+                server_mail_response=server_mail_response,
+                mailing=mailing
+            )
+        self.stdout.write(self.style.SUCCESS(f'Успешно отправлено писем: {len(emails)}.'))
+
+# отправляется рассылка командой python manage.py send_mailing 7 (7 - это ID рассылки)
+# Если принимать несколько ID, можно использовать nargs='+':
+# parser.add_argument('pk', type=int, nargs='+', help='ID одной или нескольких рассылок')
+# отправляются командой python manage.py send_mailing 3 5 7 (3,5,7 - это ID рассылок)
