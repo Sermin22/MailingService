@@ -16,15 +16,35 @@ from mailing.services import get_subscriber_list_from_cache, get_message_list_fr
 # from django.contrib.auth.models import Group
 
 
-class HomeView(TemplateView):
+class HomeView(LoginRequiredMixin, TemplateView):
     template_name = 'mailing/home.html'
 
+    # На главной странице отображаем количество рассылок, активных и уникальных получателей
+    # по вошедшему пользователю
     def get_context_data(self, **kwargs):
+        user = self.request.user  # Получаем текущего пользователя
         context = super().get_context_data(**kwargs)
-        context['total_mailings'] = MailingModel.objects.count()
-        context['active_mailings'] = MailingModel.objects.filter(status=MailingModel.STARTED).count()
-        context['unique_subscribers'] = Subscriber.objects.count()  # Если email уникальный в модели
+        # Фильтруем объекты MailingModel по владельцу (текущему пользователю)
+        mailings = MailingModel.objects.filter(owner=user)
+        # Всего рассылок
+        context['total_mailings'] = mailings.count()
+        # Активных рассылок
+        context['active_mailings'] = mailings.filter(status=MailingModel.STARTED).count()
+        # Уникальных получателей
+        # Подписчиков, связанных с любыми рассылками пользователя
+        unique_subscribers = Subscriber.objects.filter(
+            subscribers__in=mailings
+        ).distinct().count()
+        context['unique_subscribers'] = unique_subscribers
         return context
+
+    # # если нужно всего в системе
+    # def get_context_data(self, **kwargs):
+    #     context = super().get_context_data(**kwargs)
+    #     context['total_mailings'] = MailingModel.objects.count()
+    #     context['active_mailings'] = MailingModel.objects.filter(status=MailingModel.STARTED).count()
+    #     context['unique_subscribers'] = Subscriber.objects.count()
+    #     return context
 
 
 class SubscriberListView(LoginRequiredMixin, ListView):
@@ -324,6 +344,18 @@ class MailingModelCreateView(LoginRequiredMixin, PermissionRequiredMixin, Create
     success_url = reverse_lazy('mailing:mailingmodel_list')
     permission_required = 'mailing.add_mailingmodel'
 
+    def get_form(self, form_class=None):
+        """Переопределяем метод для ограничения доступности подписок и сообщений"""
+        if not form_class:
+            form_class = self.form_class
+        form = form_class(**self.get_form_kwargs())  # Создаем экземпляр формы
+        # Ограничиваем выбор сообщений и подписчиков текущим пользователем и
+        # настраиваем queryset полей формы
+        user = self.request.user
+        form.fields['message'].queryset = Message.objects.filter(owner=user)
+        form.fields['subscriber'].queryset = Subscriber.objects.filter(owner=user)
+        return form
+
     def form_valid(self, form):
         mailing = form.save()
         user = self.request.user
@@ -421,8 +453,13 @@ class SendingMailingView(LoginRequiredMixin, View):
                                       'Статус рассылки будет изменен!')
             mailing.status = MailingModel.FINISHED
             mailing.save()
+        if not mailing.is_active:
+            messages.warning(request, 'Данная рассылка деактивирована модератором! '
+                                      'Статус рассылки будет изменен!')
+            mailing.status = MailingModel.FINISHED
+            mailing.save()
         if mailing.status == MailingModel.FINISHED:
-            messages.warning(request, 'Нельзя отправить завершённую рассылку.')
+            messages.warning(request, 'Нельзя отправить завершённую рассылку!')
             return redirect('mailing:mailingmodel_list')
         return render(request, 'mailing/confirm_send.html', {'mailing': mailing})
 
