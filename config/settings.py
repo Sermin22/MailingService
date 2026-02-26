@@ -118,7 +118,6 @@ LANGUAGE_CODE = "ru"
 TIME_ZONE = 'Europe/Moscow'  # Изменил
 
 USE_I18N = True
-USE_L18N = True  # Добавил
 
 USE_TZ = True
 
@@ -127,11 +126,11 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = "static/"
-STATICFILES_DIRS = [BASE_DIR / 'static']  # добавил  # добавил
+STATICFILES_DIRS = [BASE_DIR / "static"]  # добавил
 
 # Медиатека (Media)
-MEDIA_URL = 'media/'  # добавил
-MEDIA_ROOT = BASE_DIR / 'media'  # добавил
+MEDIA_URL = "media/"  # добавил
+MEDIA_ROOT = BASE_DIR / "media"  # добавил
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
